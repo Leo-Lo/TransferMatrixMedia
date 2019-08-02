@@ -4,7 +4,9 @@ Created on Apr 3, 2019
 @author: Leo Lo
 '''
 
-from NearFieldOptics.Materials.material_types import *
+from Materials.material_types import *
+import Materials
+from Materials import *
 import copy
 import sympy
 
@@ -90,7 +92,7 @@ class TransferMatrix:
         """
         for layer in self._layers:
             
-            if isinstance(layer,Surface):
+            if isinstance(layer,Materials.material_types.Surface):
                 self._check_previous_layer_()
                 self.layerDictionary["S{0}{1}".format(self._surfaceCount,self._surfaceCount+1)] = layer
                 myTransmissionMatrix = TransmissionMatrix(self.polarization,self._surfaceCount)
@@ -99,16 +101,16 @@ class TransferMatrix:
                 self._surfaceCount += 1
             
             #recursively unpack a LayeredMedia constituents into Layer and Surface
-            elif isinstance(layer,LayeredMedia):
+            elif isinstance(layer,Materials.material_types.LayeredMedia):
                 myTransferMatrix = TransferMatrix(layer)
                 self.matrix *= myTransferMatrix.get_matrix()
                 
-            elif isinstance(layer,Layer):
+            elif isinstance(layer,Materials.material_types.Layer):
                 preLayer = self._deepest_pre_layer_(self._layers[self._index-1])    
              
                 if self._index == 0:     #override the marginal case in which the end of the material, which is accessed by self._layers(-1) is a surface.
-                    preLayer = Layer(self.entrance,1)     #The thickness of the entrance material doesn't matter; it's arbitrarily set to 1 
-                if isinstance(preLayer,Layer):      #The condition for two adjacent _layers; need to insert a transmission matrix in between
+                    preLayer = Materials.material_types.Layer(self.entrance,1)     #The thickness of the entrance material doesn't matter; it's arbitrarily set to 1 
+                if isinstance(preLayer,Materials.material_types.Layer):      #The condition for two adjacent _layers; need to insert a transmission matrix in between
                     self._insert_transmission_matrix_()
                 
                 self.layerDictionary['L{}'.format(self.layerCount)] = layer
@@ -118,8 +120,8 @@ class TransferMatrix:
                 self.layerCount += 1
             
             #Create another Surface at the exit boundary if the end of the Layered Medium is a layer
-            if (self._index+1==len(self._layers) and isinstance(layer,Layer)):
-                self.layerDictionary["S{0}{1}".format(self._surfaceCount,self._surfaceCount+1)] = Surface()
+            if (self._index+1==len(self._layers) and isinstance(layer,Materials.material_types.Layer)):
+                self.layerDictionary["S{0}{1}".format(self._surfaceCount,self._surfaceCount+1)] = Materials.material_types.Surface()
                 myTransmissionMatrix = TransmissionMatrix(self.polarization,self._surfaceCount)
                 self.matrixDictionary["T{0}{1}".format(self._surfaceCount,self._surfaceCount+1)] = myTransmissionMatrix
                 self.matrix *= myTransmissionMatrix.get_matrix()
@@ -160,7 +162,7 @@ class TransferMatrix:
             void
         
         """
-        self.layerDictionary["S{0}{1}".format(self._surfaceCount,self._surfaceCount+1)] = Surface() 
+        self.layerDictionary["S{0}{1}".format(self._surfaceCount,self._surfaceCount+1)] = Materials.material_types.Surface() 
         
         myTransmissionMatrix = TransmissionMatrix(self.polarization,self._surfaceCount)
         self.matrixDictionary["T{0}{1}".format(self._surfaceCount,self._surfaceCount+1)] = myTransmissionMatrix
@@ -179,7 +181,7 @@ class TransferMatrix:
             a Layer object immediately before the layer of interest
         
         """
-        if isinstance(layer,LayeredMedia):
+        if isinstance(layer,Materials.material_types.LayeredMedia):
             layer = self._deepest_pre_layer_(layer.get_layers()[-1])        #need to choose the last Layer (i.e. -1 _index) embedded in the previous LayeredMedia
         return layer
     
@@ -195,7 +197,7 @@ class TransferMatrix:
             a Layer object immediately after the layer of interest
         
         """
-        if isinstance(layer,LayeredMedia):
+        if isinstance(layer,Materials.material_types.LayeredMedia):
             layer = self._deepest_pre_layer_(layer.get_layers()[0])     #need to choose the first Layer (i.e. 0 _index) embedded in the following LayeredMedia
         return layer
 

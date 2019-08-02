@@ -4,8 +4,8 @@ Created on Apr 3, 2019
 @author: Leo Lo
 '''
 
-from NearFieldOptics.Materials.material_types import *
-from TransferMatrixMethod import MatrixBuilder
+from Materials.material_types import *
+import MatrixBuilder
 import sympy
 import copy
 import numpy
