@@ -4,8 +4,8 @@ Created on Apr 3, 2019
 @author: Leo Lo
 '''
 
-from Materials.material_types import *
-import MatrixBuilder
+from NearFieldOptics.Materials.material_types import *
+from NearFieldOptics.Materials.TransferMatrixMedia import MatrixBuilder as mb
 import sympy
 import copy
 import numpy
@@ -390,7 +390,7 @@ class Calculator():
             
         M_1_to_n_inv = sympy.Matrix([[M_1_to_n[1,1],-M_1_to_n[0,1]],[-M_1_to_n[1,0],M_1_to_n[0,0]]])
         
-        M_n_to_end = MatrixBuilder.TransmissionMatrix(self.transferMatrix.polarization,n,surfaceCurrent='self').get_matrix()
+        M_n_to_end = mb.TransmissionMatrix(self.transferMatrix.polarization,n,surfaceCurrent='self').get_matrix()
         for x in range(n+1, self.numLayers+2):
             M_n_to_end *= matrixDictionary["P{0}".format(x)].get_matrix()
             M_n_to_end *= matrixDictionary["T{0}{1}".format(x,x+1)].get_matrix()
@@ -402,7 +402,7 @@ class Calculator():
         
         c = sympy.symbols('c')
         
-        J = MatrixBuilder.CurrentDensityVector().get_vector()
+        J = mb.CurrentDensityVector().get_vector()
         inhomogeneousTerm = 4*sympy.pi/c*J/2
         b1 = 1/(beta1*gamma2-alpha2*delta1)*(gamma2*inhomogeneousTerm[0]-alpha2*inhomogeneousTerm[1])
         HfieldBefore = M_1_to_n_inv*sympy.Matrix([[0],[b1]])
