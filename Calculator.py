@@ -8,7 +8,8 @@ from NearFieldOptics.Materials.material_types import *
 from NearFieldOptics.Materials.TransferMatrixMedia import MatrixBuilder as mb
 import sympy
 import copy
-import numpy
+import numpy as np
+from common.baseclasses import ArrayWithAxes as AWA
 
 class Calculator():
     """Calculator class calculates analytical expression and numerical value of various optical parameters.
@@ -20,8 +21,12 @@ class Calculator():
         - Transmission Coefficient
         - Transmittance
         - H Field
+        - H field profile
+        - E field (x direction) profile
+        - E field (z direction) profile
         - Reference Kernel (from Alonso-Gonzalez et al., Nature Nanotechnology 185, 2016)
         - Kernel
+        - Number of layers of the LayeredMedium
     """
     
     def __init__(self,transferMatrix):
@@ -41,6 +46,9 @@ class Calculator():
         self.analyticalTransmissionCoefficient = None
         self.analyticalTransmittance = None
         self.analyticalHField = None
+        self.H_field_profile = None
+        self.Ex_field_profile = None
+        self.Ez_field_profile = None
         self.analyticalReferenceKernel = None
         self.analyticalKernel = None
         self.numLayers = self.transferMatrix.get_layer_count()-2
@@ -88,40 +96,8 @@ class Calculator():
         
         """
         r = self.analyticalReflectionCoefficient
-        entranceMaterial = self.transferMatrix.entrance
-        exitMaterial = self.transferMatrix.exit
-        layerDictionary = self.transferMatrix.layerDictionary
-        
-        subs = {}
-        subs['c'] = 3e10
-        subs['omega'] = 2*numpy.pi*freq
-         
-        #for first boundary
-        subs['k_z1'] = entranceMaterial.get_kz(freq,q)
-        subs['epsilon_1'] = entranceMaterial.epsilon(freq,q)
-        subs['mu_1'] = entranceMaterial.mu(freq,q)
-         
-        for x in range(2, self.numLayers+2):
-             
-            layer = layerDictionary['L'+str(x)]
-            material = layer.get_material()
-            surface = layerDictionary['S'+str(x-1)+str(x)]
-            subs['k_z{}'.format(x)] = material.get_kz(freq,q)
-            subs['z{}'.format(x)] = layer.get_thickness()
-            subs['sigma{0}{1}'.format(x-1,x)] = surface.conductivity(freq)
-            subs['epsilon_{}'.format(x)] = material.epsilon(freq,q)
-            subs['mu_{}'.format(x)] = material.mu(freq,q)
-         
-        #for last boundary
-        subs['k_z{}'.format(self.numLayers+2)] = exitMaterial.get_kz(freq,q)
-        subs['epsilon_{}'.format(self.numLayers+2)] = exitMaterial.epsilon(freq,q)
-        subs['mu_{}'.format(self.numLayers+2)] = exitMaterial.mu(freq,q)
-        surface = layerDictionary['S'+str(self.numLayers+1)+str(self.numLayers+2)]
-        subs['sigma{0}{1}'.format(self.numLayers+1,self.numLayers+2)] = surface.conductivity(freq)
-        
-        numerics = sympy.lambdify(subs.keys(), r, modules='numpy')
-        r = numerics(*subs.values())
-        return r
+        r_num = self._numerical_evaluation_(r, freq, q)
+        return r_num
     
     def assemble_analytical_reflectance(self):
         """Create an analytical expression for reflectance of the entire LayeredMedia material.
@@ -164,41 +140,8 @@ class Calculator():
             
         """
         R = self.analyticalReflectance
-        entranceMaterial = self.transferMatrix.entrance
-        exitMaterial = self.transferMatrix.exit
-        layerDictionary = self.transferMatrix.layerDictionary
-        
-        subs = {}
-        subs['c'] = 3e10
-        subs['omega'] = 2*numpy.pi*freq
-        
-        #for first boundary
-        subs['k_z1'] = entranceMaterial.get_kz(freq,q)
-        subs['epsilon_1'] = entranceMaterial.epsilon(freq,q)
-        subs['mu_1'] = entranceMaterial.mu(freq,q)
-        
-        for x in range(2, self.numLayers+2):
-            
-            layer = layerDictionary['L'+str(x)]
-            material = layer.get_material()
-            surface = layerDictionary['S'+str(x-1)+str(x)]
-            
-            subs['k_z{}'.format(x)] = material.get_kz(freq,q)
-            subs['z{}'.format(x)] = layer.get_thickness()
-            subs['sigma{0}{1}'.format(x-1,x)] = surface.conductivity(freq)
-            subs['epsilon_{}'.format(x)] = material.epsilon(freq,q)
-            subs['mu_{}'.format(x)] = material.mu(freq,q)
-        
-        #for last boundary
-        subs['k_z{}'.format(self.numLayers+2)] = exitMaterial.get_kz(freq,q)
-        subs['epsilon_{}'.format(self.numLayers+2)] = exitMaterial.epsilon(freq,q)
-        subs['mu_{}'.format(self.numLayers+2)] = exitMaterial.mu(freq,q)
-        surface = layerDictionary['S'+str(self.numLayers+1)+str(self.numLayers+2)]
-        subs['sigma{0}{1}'.format(self.numLayers+1,self.numLayers+2)] = surface.conductivity(freq)
-        
-        numerics = sympy.lambdify(subs.keys(), R, modules='numpy')
-        R = numerics(*subs.values())
-        return R
+        R_num = self._numerical_evaluation_(R, freq, q)
+        return R_num
     
     def assemble_analytical_transmission_coefficient(self):
         """Create an analytical expression for transmission coefficient of the entire LayeredMedia material.
@@ -241,41 +184,8 @@ class Calculator():
         
         """
         t = self.analyticalTransmissionCoefficient
-        entranceMaterial = self.transferMatrix.entrance
-        exitMaterial = self.transferMatrix.exit
-        layerDictionary = self.transferMatrix.layerDictionary
-        
-        subs = {}
-        subs['c'] = 3e10
-        subs['omega'] = 2*numpy.pi*freq
-        
-        #for first boundary
-        subs['k_z1'] = entranceMaterial.get_kz(freq,q)
-        subs['epsilon_1'] = entranceMaterial.epsilon(freq,q)
-        subs['mu_1'] = entranceMaterial.mu(freq,q)
-        
-        for x in range(2, self.numLayers+2):
-            
-            layer = layerDictionary['L'+str(x)]
-            material = layer.get_material()
-            surface = layerDictionary['S'+str(x-1)+str(x)]
-            
-            subs['k_z{}'.format(x)] = material.get_kz(freq,q)
-            subs['z{}'.format(x)] = layer.get_thickness()
-            subs['sigma{0}{1}'.format(x-1,x)] = surface.conductivity(freq)
-            subs['epsilon_{}'.format(x)] = material.epsilon(freq,q)
-            subs['mu_{}'.format(x)] = material.mu(freq,q)
-        
-        #for last boundary
-        subs['k_z{}'.format(self.numLayers+2)] = exitMaterial.get_kz(freq,q)
-        subs['epsilon_{}'.format(self.numLayers+2)] = exitMaterial.epsilon(freq,q)
-        subs['mu_{}'.format(self.numLayers+2)] = exitMaterial.mu(freq,q)
-        surface = layerDictionary['S'+str(self.numLayers+1)+str(self.numLayers+2)]
-        subs['sigma{0}{1}'.format(self.numLayers+1,self.numLayers+2)] = surface.conductivity(freq)
-            
-        numerics = sympy.lambdify(subs.keys(), t, modules='numpy')
-        t = numerics(*subs.values())
-        return t
+        t_num = self._numerical_evaluation_(t, freq, q)
+        return t_num
     
     def assemble_analytical_transmittance(self):
         """Create an analytical expression for transmittance of the entire LayeredMedia material.
@@ -323,41 +233,8 @@ class Calculator():
         
         """
         T = self.analyticalTransmittance
-        entranceMaterial = self.transferMatrix.entrance
-        exitMaterial = self.transferMatrix.exit
-        layerDictionary = self.transferMatrix.layerDictionary
-        
-        subs = {}
-        subs['c'] = 3e10
-        subs['omega'] = 2*numpy.pi*freq
-        
-        #for first boundary
-        subs['k_z1'] = entranceMaterial.get_kz(freq,q)
-        subs['epsilon_1'] = entranceMaterial.epsilon(freq,q)
-        subs['mu_1'] = entranceMaterial.mu(freq,q)
-        
-        for x in range(2, self.numLayers+2):
-            
-            layer = layerDictionary['L'+str(x)]
-            material = layer.get_material()
-            surface = layerDictionary['S'+str(x-1)+str(x)]
-            
-            subs['k_z{}'.format(x)] = material.get_kz(freq,q)
-            subs['z{}'.format(x)] = layer.get_thickness()
-            subs['sigma{0}{1}'.format(x-1,x)] = surface.conductivity(freq)
-            subs['epsilon_{}'.format(x)] = material.epsilon(freq,q)
-            subs['mu_{}'.format(x)] = material.mu(freq,q)
-        
-        #for last boundary
-        subs['k_z{}'.format(self.numLayers+2)] = exitMaterial.get_kz(freq,q)
-        subs['epsilon_{}'.format(self.numLayers+2)] = exitMaterial.epsilon(freq,q)
-        subs['mu_{}'.format(self.numLayers+2)] = exitMaterial.mu(freq,q)
-        surface = layerDictionary['S'+str(self.numLayers+1)+str(self.numLayers+2)]
-        subs['sigma{0}{1}'.format(self.numLayers+1,self.numLayers+2)] = surface.conductivity(freq)
-            
-        numerics = sympy.lambdify(subs.keys(), T, modules='numpy')
-        T = numerics(*subs.values())
-        return T
+        T_num = self._numerical_evaluation_(T, freq, q)
+        return T_num
     
     def assemble_analytical_H_field(self, n, side):
         """Create analytical expression of H field at either side of the n,n+1 interface; store as a class variable. 
@@ -448,44 +325,322 @@ class Calculator():
         
         """
         H = self.analyticalHField[0] + self.analyticalHField[1]
-        entranceMaterial = self.transferMatrix.entrance
-        exitMaterial = self.transferMatrix.exit
-        layerDictionary = self.transferMatrix.layerDictionary
+        H_num = self._numerical_evaluation_(H, freq, q)
+        return H_num
+    
+    def _get_interface_position_list_(self):
+        T = self.transferMatrix
+        thickness = 0
+        list = [0]
+        num_layer = T.layerIndex-2
+        for i in range(2,num_layer+2):
+            d = T.layerDictionary['L'+str(i)].get_thickness()
+            thickness += d
+            list = np.append(list,thickness)
+        return list
+    
+    def _extract_singleton_array_value_(self,param):
+        if isinstance(param,np.ndarray):
+            return np.ndarray.item(param)
+        return param
+    
+    def _get_interface_H_field_(self,freq,q,H_0):
+        """A helper method to calculate the numerical amplitude of H field right after each interface of the LayeredMedium.
+            
+        Args:
+            freq (array): numpy.ndarray of frequencies of incident light; in unit of cm^-1
+            q (array): numpy.ndarray of in-plane momenta associated with incident light
+            H_0: a numpy column matrix with two elements, describing the amplitude of H field right before the entrance interface 
+            propagating in both directions of the LayeredMedium.
         
+        Return:
+            amplitude of H field right after each interfaces
+        
+        """
+        
+        T = self.transferMatrix
+        interface_H_field_array = []
+        
+        ##entrance interface
+        analytical_transmission_matrix = T.matrixDictionary['T12'].get_matrix()
+        numerical_transmission_matrix = self._numerical_evaluation_(analytical_transmission_matrix,freq,q)
+        tm = np.linalg.inv(numerical_transmission_matrix)
+        new_H_field = tm*H_0
+        interface_H_field_array.append(new_H_field)
+        
+        ## rest of the interfaces
+        analytical_transfer_matrix = analytical_transmission_matrix
+        endIndex = 2+int(len(T.matrixDictionary)/2)
+        for i in range(2,endIndex):
+            pm = T.matrixDictionary['P'+str(i)].get_matrix()
+            tm = T.matrixDictionary['T'+str(i)+str(i+1)].get_matrix()
+            analytical_transfer_matrix = analytical_transfer_matrix*pm*tm
+            
+            numerical_transfer_matrix = self._numerical_evaluation_(analytical_transfer_matrix,freq,q)
+            tm = np.linalg.inv(numerical_transfer_matrix)
+            new_H_field = tm*H_0
+            interface_H_field_array.append(new_H_field)
+        
+        return interface_H_field_array
+    
+    def _update_E_field_profile_(self,Ex_profile, Ez_profile, material, H, freq, q):
+        
+        T = self.transferMatrix
+        
+        kz = material.get_kz(freq,q)
+        epsilon = material.epsilon(freq,q)
+        kz = self._extract_singleton_array_value_(kz)
+        epsilon = self._extract_singleton_array_value_(epsilon)
+        
+        omega = 2*np.pi*freq
+        Ex = (H[1]-H[0])*29979245368*kz/(omega*epsilon)
+        Ex_profile = np.append(Ex_profile,Ex)
+        Ez = (H[0]+H[1])*29979245368*q/(omega*epsilon)
+        Ez_profile = np.append(Ez_profile,Ez)
+        
+        return Ex_profile,Ez_profile
+    
+    def _numerical_evaluation_(self,analytical_quantity,freq,q):
+        """Substitute numerical values into any analytical expression.
+        
+        Use lambdify function to substitute numerical values into analytical quantity
+        specified by user.
+        Automatically broadcast the 1D freq and q arrays into a 2D array to evaluate reflection coefficient at each combination of freq and q.
+        
+        Args:
+            freq (array): numpy.ndarray array of frequencies of incident light; in unit of cm^-1
+            q (array): numpy.ndarray of in-plane momenta associated with incident light
+        
+        Return:
+            The numerical value of analytical_quantity with corresponding dimension of array (based on dimension of freq and q). 
+        
+        """
+        T = self.transferMatrix
+        entranceMaterial = T.entrance
+        exitMaterial = T.exit
+        layerDictionary = T.layerDictionary
+    
         subs = {}
         subs['c'] = 3e10
-        subs['omega'] = 2*numpy.pi*freq
-        subs['q'] = q
-        subs['rho'] = 1
-        
+        subs['omega'] = 2*np.pi*freq
+    
         #for first boundary
         subs['k_z1'] = entranceMaterial.get_kz(freq,q)
         subs['epsilon_1'] = entranceMaterial.epsilon(freq,q)
         subs['mu_1'] = entranceMaterial.mu(freq,q)
-        
+    
         for x in range(2, self.numLayers+2):
-            
+    
             layer = layerDictionary['L'+str(x)]
             material = layer.get_material()
             surface = layerDictionary['S'+str(x-1)+str(x)]
-            
             subs['k_z{}'.format(x)] = material.get_kz(freq,q)
             subs['z{}'.format(x)] = layer.get_thickness()
             subs['sigma{0}{1}'.format(x-1,x)] = surface.conductivity(freq)
             subs['epsilon_{}'.format(x)] = material.epsilon(freq,q)
             subs['mu_{}'.format(x)] = material.mu(freq,q)
-        
+    
         #for last boundary
         subs['k_z{}'.format(self.numLayers+2)] = exitMaterial.get_kz(freq,q)
         subs['epsilon_{}'.format(self.numLayers+2)] = exitMaterial.epsilon(freq,q)
         subs['mu_{}'.format(self.numLayers+2)] = exitMaterial.mu(freq,q)
         surface = layerDictionary['S'+str(self.numLayers+1)+str(self.numLayers+2)]
         subs['sigma{0}{1}'.format(self.numLayers+1,self.numLayers+2)] = surface.conductivity(freq)
-            
-        numerics = sympy.lambdify(subs.keys(), H, modules='numpy')
-        HFieldArray = numerics(*subs.values())
-        return HFieldArray
+    
+        numerics = sympy.lambdify(subs.keys(), analytical_quantity, modules='numpy')
+        numerical_quantity = numerics(*subs.values())
+        return numerical_quantity
+    
+    def compute_field_profile(self,freq,q,a=1.,distance_into_entrance=0,distance_into_exit=0,num_sample=1000,subtract_incident_field=True,normalized=True):
+        """Calculate the numerical values of E field (z direction) profile, E field (x direction) profile, and H field (y direction) profile. 
         
+        Field profile means the value of the field as a function of z position, with z axis normal to interface.
+        
+        Note: in order to propagate from entrance to exit, due to the formulation used in this code, we need to use
+        the inverse of all the matrices.
+        
+        Args:
+            freq (float): Frequency of incident light; in unit of cm^-1
+            q (float): In-plane momentum of incident light; in unit of cm^-1
+            a (float): magnitude of incident H field
+            distance_into_entrance (float): distance of profile before entrance; in unit of cm
+            distance_into_exit (float): distance of profile after exit; in unit of cm
+            num_sample: number of position to sample fields
+        
+        """
+        #Compute parameters needed for calculating fields
+        self.assemble_analytical_reflection_coefficient()
+        b=self.get_numerical_reflection_coefficient(freq,q)*a
+        T = self.transferMatrix
+        num_layer = T.layerIndex-2
+        index = 2
+        H_0 = np.matrix([[a],[b]])
+        H_profile = []
+        Ex_profile = []
+        Ez_profile = []
+        omega = 2*np.pi*freq
+        
+        #Compute parameters related to position of interfaces
+        interface_position_list = self._get_interface_position_list_()
+        thickness = interface_position_list[-1]+distance_into_entrance+distance_into_exit
+        interface_index = 1    # the index of the next interface
+        if len(interface_position_list)>1:
+            next_interface_position = interface_position_list[interface_index]
+        step_size = thickness/(num_sample-1)
+        positionArray = np.linspace(-distance_into_entrance,interface_position_list[-1]+distance_into_exit,num=int(num_sample))
+        
+        startingIndex = int(distance_into_entrance/step_size)+1
+        endingIndex = int(interface_position_list[-1]/step_size)+startingIndex
+        
+        #Obtain fields inside entrance
+        if subtract_incident_field == True:
+            H_0 = np.matrix([[0],[b]])
+        for z in positionArray[0:startingIndex]:
+            material = T.entrance
+            kz = material.get_kz(freq,q)
+            propagation_matrix = np.matrix([[np.exp(-1j*kz*abs(z)) , 0],
+                                            [0 , np.exp(1j*kz*abs(z))]])
+            H = propagation_matrix*H_0
+            H_profile = np.append(H_profile,H.sum())
+            Ex_profile, Ez_profile = self._update_E_field_profile_(Ex_profile, Ez_profile, material, H, freq, q)
+        
+        #Obtain interface fields
+        H_0 = np.matrix([[a],[b]])
+        interface_H_field_array = self._get_interface_H_field_(freq,q,H_0)
+        H_at_interface = interface_H_field_array[0]
+        
+        #Obtain fields inside LayeredMedium
+        distance_from_interface = step_size
+        for z in positionArray[startingIndex:endingIndex]:
+        
+            floating_error = step_size/1000
+            if z-floating_error > next_interface_position:
+                #go to next interface
+                H_at_interface = interface_H_field_array[interface_index]
+                interface_index += 1
+                distance_from_interface = z-next_interface_position
+                next_interface_position = interface_position_list[interface_index]
+        
+            material = T.layerDictionary['L'+str(interface_index+1)].get_material()
+            kz = material.get_kz(freq,q)
+            propagation_matrix = np.matrix([[np.exp(1j*kz*distance_from_interface) , 0],
+                                            [0 , np.exp(-1j*kz*distance_from_interface)]])
+        
+            H = propagation_matrix*H_at_interface
+            H_profile = np.append(H_profile,H.sum())
+            Ex_profile, Ez_profile = self._update_E_field_profile_(Ex_profile, Ez_profile, material, H, freq, q)
+        
+            distance_from_interface += step_size
+        
+        # Obtain fields inside exit
+        for z in positionArray[endingIndex:]:
+                material = T.exit
+                kz = material.get_kz(freq,q)
+                propagation_matrix = np.matrix([[np.exp(1j*kz*abs(z)) , 0],
+                                                [0 , np.exp(-1j*kz*abs(z))]])
+                H_exit = interface_H_field_array[-1]
+                H = propagation_matrix*H_exit
+                H_profile = np.append(H_profile,H.sum())
+                Ex_profile, Ez_profile = self._update_E_field_profile_(Ex_profile, Ez_profile, material, H, freq, q)
+        
+        #Subtract incident field
+        if subtract_incident_field == True:
+            H_incident_profile = np.zeros(startingIndex)        #The incident field is already removed when propagating into entrance
+            Ex_incident_profile = np.zeros(startingIndex)        #The incident field is already removed when propagating into entrance
+            Ez_incident_profile = np.zeros(startingIndex)        #The incident field is already removed when propagating into entrance
+            for z in positionArray[startingIndex:]:
+                propagation_matrix = np.matrix([[np.exp(1j*kz*abs(z)) , 0],
+                                                [0 , np.exp(-1j*kz*abs(z))]])
+                H_0_subtracted = np.matrix([[a],[0]])
+                H = propagation_matrix * H_0_subtracted
+                H_incident_profile = np.append(H_incident_profile,H.sum())
+                Ex_incident_profile, Ez_incident_profile = self._update_E_field_profile_(Ex_incident_profile, Ez_incident_profile, material, H, freq, q)
+            H_profile = H_profile - H_incident_profile
+            Ex_profile = Ex_profile - Ex_incident_profile
+            Ez_profile = Ez_profile - Ez_incident_profile
+            
+            H0 = b
+        
+        elif subtract_incident_field == False:
+            H0=a+b
+        else:
+            Logger.raiseException('Invalid input for argument \'subtract_incident_field\'. Can only be boolean value.', exception=ValueError)
+        
+        if normalized==True:
+            material = T.entrance
+            kz = material.get_kz(freq,q)
+            epsilon = material.epsilon(freq,q)
+            Ez0 = H0*29979245368*q/(omega*epsilon)
+            Ez_profile = Ez_profile/Ez0*b
+            Ex0 = H0*29979245368*kz/(omega*epsilon)
+            Ex_profile = Ex_profile/Ex0*b
+        elif (normalized!=False)&(normalized!=True):
+            Logger.raiseException('Invalid input for argument \'normalized\'. Can only be boolean value.', exception=ValueError)
+        
+        self.Ez_field_profile = AWA(Ez_profile,axes=[positionArray*1e7],axis_names=['distance from entrance (nm)'])
+        self.Ex_field_profile = AWA(Ex_profile,axes=[positionArray*1e7],axis_names=['distance from entrance (nm)'])
+        self.H_field_profile = AWA(H_profile,axes=[positionArray*1e7],axis_names=['distance from entrance (nm)'])
+
+    def get_H_field_profile(self):
+        """Get H field profile. Use after the compute_field_profile method to obtain nonempty result.
+        
+        Field profile means the value of the field as a function of z position, with z axis normal to interface.
+        
+        Args:
+             None.
+        
+        Return:
+            class variable H_field_profile 
+            
+        """
+        return copy.copy(self.H_field_profile)
+    
+    def get_Ez_field_profile(self):
+        """Get E field (z direction) profile. Use after the compute_field_profile method to obtain nonempty result.
+        
+        Field profile means the value of the field as a function of z position, with z axis normal to interface.
+        
+        Args:
+             None.
+        
+        Return:
+            class variable Ez_field_profile 
+            
+        """
+        return copy.copy(self.Ez_field_profile)
+    
+    def get_Ex_field_profile(self):
+        """Get E field (x direction) profile. Use after the compute_field_profile method to obtain nonempty result.
+        
+        Field profile means the value of the field as a function of z position, with z axis normal to interface.
+        
+        Args:
+             None.
+        
+        Return:
+            class variable Ex_field_profile 
+            
+        """
+        return copy.copy(self.Ex_field_profile)
+    
+    def get_2d_field_profile(self,q,field_str='Ez',num_sample=10000,x_window_size = 4):
+        if field_str=='Ez':
+            field = self.Ez_field_profile
+        elif field_str=='Ex':
+            field = self.Ex_field_profile
+        elif field_str=='H':
+            field = self.H_field_profile
+        else:
+            Logger.raiseException('Invalid input for field_str argument. Only takes Ez,Ex, or H as input.',exception=ValueError)    
+        
+        wavelength = 2*np.pi/q
+        step_size = x_window_size*wavelength/num_sample
+        x_array = np.linspace(0,x_window_size*wavelength,num_sample)
+        propagate_array = np.cos(q*x_array)
+        field_2d = np.outer(field,propagate_array)  
+        return field_2d
+    
+    
     def assemble_analytical_reference_kernel(self):
         """Create an analytical expression for Coulomb kernel from Alonso-Gonzalez et al., Nature Nanotechnology 185, 2016.
         
@@ -620,14 +775,13 @@ class Calculator():
             IsotropicMaterial,BaseAnisotropicMaterial, or AnisotropicMaterial.',exception=ValueError)
         
         e = 1
-        v_q = -4*numpy.pi*e/(q*(epsilon_a+epsilon_b))
+        v_q = -4*np.pi*e/(q*(epsilon_a+epsilon_b))
         V = v_q*(
-                safe_sqrt(epsilon_x*epsilon_z)+epsilon_b*numpy.tanh(q*d*safe_sqrt(epsilon_x/epsilon_z))
+                safe_sqrt(epsilon_x*epsilon_z)+epsilon_b*np.tanh(q*d*safe_sqrt(epsilon_x/epsilon_z))
             )/(
-                safe_sqrt(epsilon_x*epsilon_z)+(epsilon_x*epsilon_z+epsilon_b*epsilon_a)*numpy.tanh(q*d*safe_sqrt(epsilon_x/epsilon_z))/(epsilon_a+epsilon_b)
+                safe_sqrt(epsilon_x*epsilon_z)+(epsilon_x*epsilon_z+epsilon_b*epsilon_a)*np.tanh(q*d*safe_sqrt(epsilon_x/epsilon_z))/(epsilon_a+epsilon_b)
                 )
         return V
-    
     
     def assemble_analytical_kernel(self,n,side):
         """Create analytical expression of Coulomb kernel from transfer matrix method.
@@ -691,42 +845,6 @@ class Calculator():
         """
 
         V = self.analyticalKernel
-        
-        entranceMaterial = self.transferMatrix.entrance
-        exitMaterial = self.transferMatrix.exit
-        layerDictionary = self.transferMatrix.layerDictionary
-        
-        subs = {}
-        subs['c'] = 3e10
-        subs['omega'] = 2*numpy.pi*freq
-        subs['q'] = q
-        subs['rho'] = 1
-        
-        #for first boundary
-        subs['k_z1'] = entranceMaterial.get_kz(freq,q)
-        subs['epsilon_1'] = entranceMaterial.epsilon(freq,q)
-        subs['mu_1'] = entranceMaterial.mu(freq,q)
-         
-        for x in range(2, self.numLayers+2):
-             
-            layer = layerDictionary['L'+str(x)]
-            material = layer.get_material()
-            surface = layerDictionary['S'+str(x-1)+str(x)]
-            subs['k_z{}'.format(x)] = material.get_kz(freq,q)
-            subs['z{}'.format(x)] = layer.get_thickness()
-            subs['sigma{0}{1}'.format(x-1,x)] = surface.conductivity(freq)
-            subs['epsilon_{}'.format(x)] = material.epsilon(freq,q)
-            subs['mu_{}'.format(x)] = material.mu(freq,q)
-         
-        #for last boundary
-        subs['k_z{}'.format(self.numLayers+2)] = exitMaterial.get_kz(freq,q)
-        subs['epsilon_{}'.format(self.numLayers+2)] = exitMaterial.epsilon(freq,q)
-        subs['mu_{}'.format(self.numLayers+2)] = exitMaterial.mu(freq,q)
-        surface = layerDictionary['S'+str(self.numLayers+1)+str(self.numLayers+2)]
-        subs['sigma{0}{1}'.format(self.numLayers+1,self.numLayers+2)] = surface.conductivity(freq)
-         
-        numerics = sympy.lambdify(subs.keys(), V, modules='numpy')
-        potentialArray = numerics(*subs.values())
-                
-        return potentialArray
+        V_num = self._numerical_evaluation_(V, freq, q)
+        return V_num
         

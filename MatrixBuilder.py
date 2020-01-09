@@ -5,15 +5,11 @@ Created on Apr 3, 2019
 '''
 
 from NearFieldOptics.Materials import *
-from NearFieldOptics.Materials.material_types import *
 import copy
 import sympy
 
 class TransferMatrix:
     """TransferMatrix class assembles and stores the transfer matrix based on the user-inputed LayeredMedia object. Relevant quantities are stored.
-        
-    Args:
-         (): 
         
     Attributes:
         The following quantities are stored:
@@ -49,7 +45,7 @@ class TransferMatrix:
         self.layerDictionary = {}
         
         self._index = 0
-        self.layerCount = 2     #The final value of layerCount after building the material is two more than the actual number of layers. 
+        self.layerIndex = 2     #The final value of layerIndex after building the material is two more than the actual number of layers. 
         self._surfaceCount = 1
         
         self.create_matrix()
@@ -112,11 +108,11 @@ class TransferMatrix:
                 if isinstance(preLayer,Layer):      #The condition for two adjacent _layers; need to insert a transmission matrix in between
                     self._insert_transmission_matrix_()
                 
-                self.layerDictionary['L{}'.format(self.layerCount)] = layer
-                myPropagationMatrix = PropagationMatrix(self.layerCount)
-                self.matrixDictionary["P{}".format(self.layerCount)] = myPropagationMatrix
+                self.layerDictionary['L{}'.format(self.layerIndex)] = layer
+                myPropagationMatrix = PropagationMatrix(self.layerIndex)
+                self.matrixDictionary["P{}".format(self.layerIndex)] = myPropagationMatrix
                 self.matrix *= myPropagationMatrix.get_matrix()
-                self.layerCount += 1
+                self.layerIndex += 1
             
             #Create another Surface at the exit boundary if the end of the Layered Medium is a layer
             if (self._index+1==len(self._layers) and isinstance(layer,Layer)):
@@ -263,10 +259,10 @@ class TransferMatrix:
             None
         
         Return:
-            layerCount (a class variable)
+            layerIndex (a class variable)
             
         """
-        return copy.copy(self.layerCount)
+        return copy.copy(self.layerIndex)
     
 class TransmissionMatrix:
     """TransmissionMatrix class create analytical expression corresponding to a Surface object.
@@ -299,7 +295,7 @@ class TransmissionMatrix:
             epsilon_in,epsilon_out,omega,kz_in,kz_out,sigma = sympy.symbols('epsilon_{0},epsilon_{1},omega,k_z{0},k_z{1},sigma{0}{1}'.format(surfaceCount,surfaceCount+1))
             
             eta_p = epsilon_in*kz_out/(epsilon_out*kz_in) 
-            xi_p = 4*sympy.pi*(sigma/29979245368)*kz_out/(epsilon_out*omega)     #29979245368, i.e. c is the conversion factor to convert conductivity (sigma) from unit of cm/s to dimensionless (as frequency is measured in wavenumbers).
+            xi_p = 4*sympy.pi*(sigma/29979245368)*kz_out/(epsilon_out*omega)     #29979245368, i.e. c is the conversion factor to convert sheet conductivity (sigma) from unit of cm/s to dimensionless (as frequency is measured in wavenumbers).
             half = sympy.Rational(1,2)
                 
             if surfaceCurrent == 'default':
@@ -315,7 +311,7 @@ class TransmissionMatrix:
             c,kz_in,kz_out,sigma,mu_in,omega = sympy.symbols('c,k_z{0},k_z{1},sigma{0}{1},mu_{0},omega'.format(surfaceCount,surfaceCount+1))
             
             eta_s = kz_out/kz_in
-            xi_s = 4*sympy.pi*(sigma/29979245368)*mu_in*omega/kz_in     #29979245368, i.e. c is the conversion factor to convert conductivity (sigma) from unit of cm/s to dimensionless (as frequency is measured in wavenumbers).
+            xi_s = 4*sympy.pi*(sigma/29979245368)*mu_in*omega/kz_in     #29979245368, i.e. c is the conversion factor to convert sheet conductivity (sigma) from unit of cm/s to dimensionless (as frequency is measured in wavenumbers).
             half = sympy.Rational(1,2)
             self.T = half*sympy.Matrix([[1+eta_s+xi_s, 1-eta_s+xi_s], [1-eta_s-xi_s, 1+eta_s-xi_s]])
             
@@ -347,7 +343,7 @@ class PropagationMatrix:
         """Construct and store a PropagationMatrix object.
         
         Args:
-            layerCount (int): the index of the Layer (Surface is not included in this counting)
+            layerIndex (int): the index of the Layer (Surface is not included in this counting)
         
         Return:
             void
