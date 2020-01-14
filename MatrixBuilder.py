@@ -253,7 +253,7 @@ class TransferMatrix:
         return copy.copy(self.layerDictionary)
     
     def get_layer_count(self):
-        """Get the number of layers contained within the user-inputed LayeredMedia.
+        """Get the number of layer contained within the user-inputed LayeredMedia.
         
         Args:
             None
@@ -262,7 +262,8 @@ class TransferMatrix:
             layerIndex (a class variable)
             
         """
-        return copy.copy(self.layerIndex)
+        numLayers = self.layerIndex-2
+        return copy.copy(numLayers)
     
 class TransmissionMatrix:
     """TransmissionMatrix class create analytical expression corresponding to a Surface object.
